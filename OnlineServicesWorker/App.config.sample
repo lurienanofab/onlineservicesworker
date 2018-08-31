@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+  <configSections>
+    <sectionGroup name="lnf">
+      <section name="provider" type="LNF.ServiceProviderSection, LNF" />
+    </sectionGroup>
+  </configSections>
+
+  <lnf>
+    <provider production="false">
+      <context loginUrl="/login" />
+      <dataAccess showSql="true" />
+      <control host="xxxxx" />
+    </provider>
+  </lnf>
+
+  <!-- Production Values
+  <lnf>
+    <provider production="true">
+      <context loginUrl="/login" />
+      <dataAccess showSql="false" />
+      <control host="xxxxx" />
+    </provider>
+  </lnf>
+  -->
+
+  <connectionStrings>
+    <add name="cnSselData" connectionString="xxxxx" providerName="System.Data.SqlClient" />
+  </connectionStrings>
+
+  <appSettings>
+    <add key="MongoConnectionString" value="xxxxx" />
+  </appSettings>
+
+  <!-- Production Values
+  <appSettings>
+    <add key="MongoConnectionString" value="xxxxx" />
+  </appSettings>
+  -->
+  
+  <startup>
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.7" />
+  </startup>
+</configuration>
