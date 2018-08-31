@@ -11,6 +11,7 @@
       <context loginUrl="/login" />
       <dataAccess showSql="true" />
       <control host="xxxxx" />
+      <log name="OnlineServicesWorker" enabled="true"/>
     </provider>
   </lnf>
 
@@ -20,6 +21,7 @@
       <context loginUrl="/login" />
       <dataAccess showSql="false" />
       <control host="xxxxx" />
+      <log name="OnlineServicesWorker" enabled="true"/>
     </provider>
   </lnf>
   -->
@@ -29,15 +31,17 @@
   </connectionStrings>
 
   <appSettings>
+    <add key="UseParentRooms" value="true" />
     <add key="MongoConnectionString" value="xxxxx" />
   </appSettings>
 
   <!-- Production Values
   <appSettings>
+    <add key="UseParentRooms" value="true" />
     <add key="MongoConnectionString" value="xxxxx" />
   </appSettings>
   -->
-  
+
   <startup>
     <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.7" />
   </startup>

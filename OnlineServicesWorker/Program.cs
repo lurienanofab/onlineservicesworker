@@ -53,10 +53,15 @@ namespace OnlineServicesWorker
             }
         }
 
-        public static void ConsoleWriteLine(string msg, params object[] args)
+        public static void ConsoleWriteLine(string msg, ConsoleColor clr = ConsoleColor.Gray)
         {
             if (_consoleMode)
-                Console.WriteLine(msg, args);
+            {
+                var c = Console.ForegroundColor;
+                Console.ForegroundColor = clr;
+                Console.WriteLine(msg);
+                Console.ForegroundColor = c;
+            }
         }
     }
 }
