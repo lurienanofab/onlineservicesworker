@@ -6,12 +6,14 @@
     </sectionGroup>
   </configSections>
 
+  <!-- Development Values -->
   <lnf>
     <provider production="false">
       <context loginUrl="/login" />
       <dataAccess showSql="true" />
+      <email host="xxxxx" log="true" />
       <control host="xxxxx" />
-      <log name="OnlineServicesWorker" enabled="true"/>
+      <log name="OnlineServicesWorker" enabled="true" />
     </provider>
   </lnf>
 
@@ -20,8 +22,9 @@
     <provider production="true">
       <context loginUrl="/login" />
       <dataAccess showSql="false" />
+      <email host="xxxxx" log="true" />
       <control host="xxxxx" />
-      <log name="OnlineServicesWorker" enabled="true"/>
+      <log name="OnlineServicesWorker" enabled="true" />
     </provider>
   </lnf>
   -->
@@ -30,14 +33,32 @@
     <add name="cnSselData" connectionString="xxxxx" providerName="System.Data.SqlClient" />
   </connectionStrings>
 
+  <!-- Development Values -->
   <appSettings>
     <add key="UseParentRooms" value="true" />
+    <add key="UserApportionmentEmailRecipients" value="xxxxx" />
+    <add key="MonthlyFinancialEmailRecipients" value="xxxxx" />
+    <add key="ExpiringCardsEmailRecipients" value="xxxxx" />
+    
+    <!-- leave blank to not send email -->
+    <add key="SendDailyTaskEmail" value="xxxxx" />
+    
+    <add key="ApiBaseUrl" value="xxxxx" />
+    <add key="BasicAuthUsername" value="xxxxx" />
+    <add key="BasicAuthPassword" value="xxxxx" />
     <add key="MongoConnectionString" value="xxxxx" />
   </appSettings>
 
   <!-- Production Values
   <appSettings>
     <add key="UseParentRooms" value="true" />
+    <add key="UserApportionmentEmailRecipients" value="xxxxx" />
+    <add key="MonthlyFinancialEmailRecipients" value="xxxxx" />
+    <add key="ExpiringCardsEmailRecipients" value="xxxxx" />
+    <add key="SendDailyTaskEmail" value="xxxxx" />
+    <add key="ApiBaseUrl" value="xxxxx" />
+    <add key="BasicAuthUsername" value="xxxxx" />
+    <add key="BasicAuthPassword" value="xxxxx" />
     <add key="MongoConnectionString" value="xxxxx" />
   </appSettings>
   -->

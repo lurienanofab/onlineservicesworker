@@ -9,4 +9,5 @@ PublishProfiles/
 [wW]eb.config
 [wW]eb.*.config
 [aA]pp.config
+[aA]pp.*.config
 !Views/[wW]eb.config

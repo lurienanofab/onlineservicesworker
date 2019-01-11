@@ -1,14 +1,19 @@
-﻿using System.Messaging;
-using System;
-using System.ServiceProcess;
-using System.Configuration.Install;
-using System.Linq;
-using System.Reflection;
-using System.Threading;
-using LNF;
+﻿using LNF;
+using LNF.CommonTools;
 using LNF.Impl.DependencyInjection.Default;
-using LNF.Service;
+using LNF.Models.Worker;
+using Newtonsoft.Json;
+using RestSharp;
+using RestSharp.Authenticators;
+using System;
+using System.Configuration.Install;
 using System.Diagnostics;
+using System.Drawing;
+using System.Linq;
+using System.Messaging;
+using System.Reflection;
+using System.ServiceProcess;
+using System.Threading;
 
 namespace OnlineServicesWorker
 {
@@ -36,35 +41,45 @@ namespace OnlineServicesWorker
 
             var msgq = GetMessageQueue();
 
+            // When the service starts the queue should be cleared so we don't process a bunch of stale messages
+            msgq.Purge();
+
             _thread = new Thread(() =>
             {
                 while (true)
                 {
-                    Message msg = msgq.Receive();
-                    msg.Formatter = new XmlMessageFormatter(new[] { typeof(WorkerRequest) });
-                    WorkerRequest req = (WorkerRequest)msg.Body;
-
                     try
                     {
-                        Program.ConsoleWriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] RECV: {req.Command}", ConsoleColor.White);
+                        Message msg = msgq.Receive();
+                        msg.Formatter = new XmlMessageFormatter(new[] { typeof(WorkerRequest) });
+                        WorkerRequest req = (WorkerRequest)msg.Body;
+
+                        BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] RECV: {req.Command}", ConsoleColor.White);
+
                         var handler = new RequestHandler(req);
                         var sw = Stopwatch.StartNew();
-                        handler.Start();
+                        string message = handler.Start();
                         sw.Stop();
-                        Program.ConsoleWriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Completed in {sw.Elapsed}", ConsoleColor.White);
+
+                        BroadcastLogMessage(message.TrimEnd(Environment.NewLine.ToCharArray()), ConsoleColor.Yellow);
+                        BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Completed in {sw.Elapsed.TotalSeconds:0.0000}", ConsoleColor.White);
                     }
                     catch (Exception ex)
                     {
-                        Program.ConsoleWriteLine(ex.Message, ConsoleColor.Red);
+                        Program.ConsoleWriteLine(ex.ToString(), ConsoleColor.Red);
+                        BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex.ToString()}", ConsoleColor.Red);
                     }
                 }
             });
 
             _thread.Start();
+
+            BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Service started.");
         }
 
         protected override void OnStop()
         {
+
         }
 
         private MessageQueue GetMessageQueue()
@@ -79,6 +94,66 @@ namespace OnlineServicesWorker
             else
                 result = new MessageQueue(QUEUE_PATH);
 
+            return result;
+        }
+
+        private void BroadcastLogMessage(string text, ConsoleColor clr = ConsoleColor.Gray)
+        {
+            Program.ConsoleWriteLine(text, clr);
+
+            var host = Utility.GetRequiredAppSetting("ApiBaseUrl");
+            var username = Utility.GetRequiredAppSetting("BasicAuthUsername");
+            var password = Utility.GetRequiredAppSetting("BasicAuthPassword");
+
+            LogMessage logMsg = new LogMessage()
+            {
+                Text = text,
+                Color = GetHexColor(clr)
+            };
+
+            IRestClient client = new RestClient(host)
+            {
+                Authenticator = new HttpBasicAuthenticator(username, password)
+            };
+
+            IRestRequest req = new RestRequest("worker/api/broadcast", Method.POST);
+            req.AddJsonBody(logMsg);
+
+            var resp = client.Execute(req);
+
+            EnsureSuccess(resp);
+        }
+
+        private void EnsureSuccess(IRestResponse resp)
+        {
+            if (!resp.IsSuccessful || resp.ErrorException != null)
+            {
+                if (resp.ErrorException != null)
+                    throw resp.ErrorException;
+
+                if (!string.IsNullOrEmpty(resp.ErrorMessage))
+                    throw new Exception(resp.ErrorMessage);
+
+                Exception ex = null;
+
+                try
+                {
+                    var err = JsonConvert.DeserializeAnonymousType(resp.Content, new { Message = "" });
+                    ex = new Exception(err.Message);
+                }
+                catch { }
+
+                if (ex == null)
+                    ex = new Exception($"[{(int)resp.StatusCode}] {resp.StatusDescription}");
+
+                throw ex;
+            }
+        }
+
+        private string GetHexColor(ConsoleColor clr)
+        {
+            var c = Color.FromName(clr.ToString());
+            var result = string.Format("#{0:x6}", c.ToArgb() & 0xFFFFFF);
             return result;
         }
 
