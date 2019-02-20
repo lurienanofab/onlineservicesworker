@@ -54,7 +54,7 @@ namespace OnlineServicesWorker
 
                         string[] cc = GetExpiringCardsEmailRecipients();
 
-                        ServiceProvider.Current.Email.SendMessage(0, "LNF.Scheduler.Service.Process.CheckClientIssues.EmailExpiringCards", subj, body, from, new[] { item.Email }, cc);
+                        SendEmail.Send(0, "LNF.Scheduler.Service.Process.CheckClientIssues.EmailExpiringCards", subj, body, from, new[] { item.Email }, cc);
 
                         count++;
                     }

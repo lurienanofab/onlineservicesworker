@@ -1,9 +1,9 @@
 ﻿using LNF;
 using LNF.Billing;
 using LNF.CommonTools;
-using LNF.Email;
 using LNF.Models;
 using LNF.Models.Billing;
+using LNF.Models.Mail;
 using LNF.Repository;
 using LNF.Repository.Data;
 using LNF.Scheduler;
@@ -39,21 +39,12 @@ namespace OnlineServicesWorker
             result = ReservationManager.HandleUnstartedReservations(pastUnstartedReservations);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
-            var sendFiveMinuteTaskEmail = Utility.GetGlobalSetting("SendFiveMinuteTaskEmail");
+            var sendFiveMinuteTaskEmail = LNF.CommonTools.Utility.GetGlobalSetting("SendFiveMinuteTaskEmail");
 
             if (!string.IsNullOrEmpty(sendFiveMinuteTaskEmail))
             {
                 // send an email
-                ServiceProvider.Current.Email.SendMessage(new SendMessageArgs
-                {
-                    ClientID = 0,
-                    Caller = "OnlineServicesWorker.TaskManager.RunFiveMinuteTask",
-                    Subject = $"FiveMinuteTask result [{now:yyyy-MM-dd HH:mm:ss}]",
-                    Body = message,
-                    From = SendEmail.SystemEmail,
-                    To = sendFiveMinuteTaskEmail.Split(','),
-                    IsHtml = false
-                });
+                SendEmail.SendSystemEmail("OnlineServicesWorker.TaskManager.RunFiveMinuteTask", $"FiveMinuteTask result [{now:yyyy-MM-dd HH:mm:ss}]", message, sendFiveMinuteTaskEmail.Split(','), false);
             }
 
             return message;
@@ -94,21 +85,12 @@ namespace OnlineServicesWorker
             result = BillingDataProcessStep1.PopulateStoreBilling(period, true);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
-            var sendDailyTaskEmail = Utility.GetGlobalSetting("SendDailyTaskEmail");
+            var sendDailyTaskEmail = LNF.CommonTools.Utility.GetGlobalSetting("SendDailyTaskEmail");
 
             if (!string.IsNullOrEmpty(sendDailyTaskEmail))
             {
                 // send an email
-                ServiceProvider.Current.Email.SendMessage(new SendMessageArgs
-                {
-                    ClientID = 0,
-                    Caller = "OnlineServicesWorker.TaskManager.RunDailyTask",
-                    Subject = $"DailyTask result [{now:yyyy-MM-dd HH:mm:ss}]",
-                    Body = message,
-                    From = SendEmail.SystemEmail,
-                    To = sendDailyTaskEmail.Split(','),
-                    IsHtml = false
-                });
+                SendEmail.SendSystemEmail("OnlineServicesWorker.TaskManager.RunDailyTask", $"DailyTask result [{now:yyyy-MM-dd HH:mm:ss}]", message, sendDailyTaskEmail.Split(','), false);
             }
 
             return message;
@@ -173,21 +155,12 @@ namespace OnlineServicesWorker
             BillingManager bm = new BillingManager(period, 0);
             message += Environment.NewLine + Environment.NewLine + bm.UpdateBilling(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
 
-            var sendMonthlyTaskEmail = Utility.GetGlobalSetting("SendMonthlyTaskEmail");
+            var sendMonthlyTaskEmail = LNF.CommonTools.Utility.GetGlobalSetting("SendMonthlyTaskEmail");
 
             if (!string.IsNullOrEmpty(sendMonthlyTaskEmail))
             {
                 // send an email
-                ServiceProvider.Current.Email.SendMessage(new SendMessageArgs
-                {
-                    ClientID = 0,
-                    Caller = "OnlineServicesWorker.TaskManager.RunMonthlyTask",
-                    Subject = $"MonthlyTask result [{now:yyyy-MM-dd HH:mm:ss}]",
-                    Body = message,
-                    From = SendEmail.SystemEmail,
-                    To = sendMonthlyTaskEmail.Split(','),
-                    IsHtml = false
-                });
+                SendEmail.SendSystemEmail("OnlineServicesWorker.TaskManager.RunMonthlyTask", $"MonthlyTask result [{now:yyyy-MM-dd HH:mm:ss}]", message, sendMonthlyTaskEmail.Split(','), false);
             }
 
             return message;

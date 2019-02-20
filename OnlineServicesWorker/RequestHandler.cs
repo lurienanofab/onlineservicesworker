@@ -1,8 +1,9 @@
 ﻿using LNF;
 using LNF.CommonTools;
-using LNF.Email;
 using LNF.Models.Billing;
+using LNF.Models.Mail;
 using LNF.Models.Worker;
+using LNF.Repository;
 using System;
 
 namespace OnlineServicesWorker
@@ -86,7 +87,7 @@ namespace OnlineServicesWorker
             if (bc == 0)
                 throw new Exception("At least one billing category is required.");
 
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateBilling(bc);
@@ -96,7 +97,7 @@ namespace OnlineServicesWorker
         public string RunUpdateToolDataClean(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateToolDataClean();
@@ -106,7 +107,7 @@ namespace OnlineServicesWorker
         public string RunUpdateToolData(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateToolData();
@@ -116,7 +117,7 @@ namespace OnlineServicesWorker
         public string RunUpdateToolBilling(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateToolBilling();
@@ -126,7 +127,7 @@ namespace OnlineServicesWorker
         public string RunUpdateRoomDataClean(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateRoomDataClean();
@@ -136,7 +137,7 @@ namespace OnlineServicesWorker
         public string RunUpdateRoomData(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateRoomData();
@@ -146,7 +147,7 @@ namespace OnlineServicesWorker
         public string RunUpdateRoomBilling(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateRoomBilling();
@@ -156,7 +157,7 @@ namespace OnlineServicesWorker
         public string RunUpdateStoreDataClean(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateStoreDataClean();
@@ -166,7 +167,7 @@ namespace OnlineServicesWorker
         public string RunUpdateStoreData(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateStoreData();
@@ -176,7 +177,7 @@ namespace OnlineServicesWorker
         public string RunUpdateStoreBilling(string[] args)
         {
             ParseArgs(args, out DateTime period);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, 0);
                 return mgr.UpdateStoreBilling();
@@ -186,7 +187,7 @@ namespace OnlineServicesWorker
         public string RunUpdateSubsidyBilling(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var mgr = new BillingManager(period, clientId);
                 return mgr.UpdateSubsidyBilling();
@@ -197,7 +198,7 @@ namespace OnlineServicesWorker
         {
             if (args.Length > 0)
             {
-                using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+                using (DA.StartUnitOfWork())
                 {
                     string task = args[0];
 
@@ -225,7 +226,7 @@ namespace OnlineServicesWorker
         public string RunSetWagoState(string[] args)
         {
             ParseArgs(args, out int resourceId, out bool state);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 WagoInterlock.ToggleInterlock(resourceId, state, 0);
                 return $"Wago point for {resourceId} set to {(state ? "ON" : "OFF")}.";
@@ -235,7 +236,7 @@ namespace OnlineServicesWorker
         public string RunGetWagoState(string[] args)
         {
             ParseArgs(args, out int resourceId);
-            using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+            using (DA.StartUnitOfWork())
             {
                 var state = WagoInterlock.GetPointState(resourceId);
                 return $"Wago point for {resourceId} is {(state ? "ON" : "OFF")}.";
@@ -246,22 +247,17 @@ namespace OnlineServicesWorker
         {
             if (args.Length == 7)
             {
-                using (ServiceProvider.Current.DataAccess.StartUnitOfWork())
+                using (DA.StartUnitOfWork())
                 {
-                    var msgArgs = new SendMessageArgs()
-                    {
-                        ClientID = 0,
-                        Caller = "OnlineServicesWorker.RequestHandler.SendEmail",
-                        From = args[0],
-                        To = args[1].Split(','),
-                        Cc = args[2].Split(','),
-                        Bcc = args[3].Split(','),
-                        Subject = args[4],
-                        Body = args[5],
-                        IsHtml = bool.Parse(args[6])
-                    };
+                    string from = args[0];
+                    string[] to = args[1].Split(',');
+                    string[] cc = args[2].Split(',');
+                    string[] bcc = args[3].Split(',');
+                    string subj = args[4];
+                    string body = args[5];
+                    bool isHtml = bool.Parse(args[6]);
 
-                    ServiceProvider.Current.Email.SendMessage(msgArgs);
+                    LNF.CommonTools.SendEmail.Send(0, "OnlineServicesWorker.RequestHandler.SendEmail", subj, body, from, to, cc, bcc, isHtml);
 
                     return "Email sent OK!" + Environment.NewLine;
                 }

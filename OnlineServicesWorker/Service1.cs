@@ -1,6 +1,7 @@
 ﻿using LNF;
 using LNF.CommonTools;
 using LNF.Impl.DependencyInjection.Default;
+using LNF.Models.Mail;
 using LNF.Models.Worker;
 using Newtonsoft.Json;
 using RestSharp;
@@ -66,8 +67,18 @@ namespace OnlineServicesWorker
                     }
                     catch (Exception ex)
                     {
-                        Program.ConsoleWriteLine(ex.ToString(), ConsoleColor.Red);
-                        BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex.ToString()}", ConsoleColor.Red);
+                        try
+                        {
+                            Program.ConsoleWriteLine(ex.ToString(), ConsoleColor.Red);
+                            BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex.ToString()}", ConsoleColor.Red);
+
+                            string errorEmail = Utility.GetGlobalSetting("OnlineServicesWorker_SendErrorEmail");
+                            if (!string.IsNullOrEmpty(errorEmail))
+                            {
+                                SendEmail.SendSystemEmail("OnlineServicesWorker", $"OnlineServicesWorker *** ERROR *** [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]", ex.ToString(), errorEmail.Split(','), false);
+                            }
+                        }
+                        catch { }
                     }
                 }
             });
