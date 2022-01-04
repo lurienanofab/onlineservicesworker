@@ -1,78 +1,76 @@
 ﻿using LNF;
+using LNF.Billing;
 using LNF.CommonTools;
-using LNF.Models.Billing;
-using LNF.Models.Mail;
-using LNF.Models.Worker;
-using LNF.Repository;
+using LNF.Worker;
 using System;
 
 namespace OnlineServicesWorker
 {
     public class RequestHandler
     {
-        public WorkerRequest Request { get; }
+        private readonly IProvider _provider;
 
-        public RequestHandler(WorkerRequest req)
+        public RequestHandler(IProvider provider)
         {
-            Request = req;
+            _provider = provider;
         }
 
-        public string Start()
+        public string Start(WorkerRequest req)
         {
-            string message = string.Empty;
+            string message;
 
-            switch (Request.Command)
+            switch (req.Command)
             {
                 case "UpdateBilling":
-                    message = RunUpdateBilling(Request.Args);
+                    message = RunUpdateBilling(req.Args);
                     break;
                 case "UpdateToolDataClean":
-                    message = RunUpdateToolDataClean(Request.Args);
+                    message = RunUpdateToolDataClean(req.Args);
                     break;
                 case "UpdateToolData":
-                    message = RunUpdateToolData(Request.Args);
+                    message = RunUpdateToolData(req.Args);
                     break;
                 case "UpdateToolBilling":
-                    message = RunUpdateToolBilling(Request.Args);
+                    message = RunUpdateToolBilling(req.Args);
                     break;
                 case "UpdateRoomDataClean":
-                    message = RunUpdateRoomDataClean(Request.Args);
+                    message = RunUpdateRoomDataClean(req.Args);
                     break;
                 case "UpdateRoomData":
-                    message = RunUpdateRoomData(Request.Args);
+                    message = RunUpdateRoomData(req.Args);
                     break;
                 case "UpdateRoomBilling":
-                    message = RunUpdateRoomBilling(Request.Args);
+                    message = RunUpdateRoomBilling(req.Args);
                     break;
                 case "UpdateStoreDataClean":
-                    message = RunUpdateStoreDataClean(Request.Args);
+                    message = RunUpdateStoreDataClean(req.Args);
                     break;
                 case "UpdateStoreData":
-                    message = RunUpdateStoreData(Request.Args);
+                    message = RunUpdateStoreData(req.Args);
                     break;
                 case "UpdateStoreBilling":
-                    message = RunUpdateStoreBilling(Request.Args);
+                    message = RunUpdateStoreBilling(req.Args);
                     break;
                 case "UpdateSubsidyBilling":
-                    message = RunUpdateSubsidyBilling(Request.Args);
+                    message = RunUpdateSubsidyBilling(req.Args);
                     break;
                 case "RunTask":
-                    message = RunTask(Request.Args);
+                    message = RunTask(req.Args);
                     break;
                 case "SetWagoState":
-                    message = RunSetWagoState(Request.Args);
+                    message = RunSetWagoState(req.Args);
                     break;
                 case "GetWagoState":
-                    message = RunGetWagoState(Request.Args);
+                    message = RunGetWagoState(req.Args);
                     break;
                 case "SendEmail":
-                    message = SendEmail(Request.Args);
+                    message = SendEmail(req.Args);
                     break;
                 case "Poke":
                     message = Poke();
                     break;
                 default:
-                    throw new Exception($"Unknown command: {Request.Command}");
+                    throw new Exception($"Unknown command: {req.Command}");
             }
 
             return message;
@@ -87,137 +85,101 @@ namespace OnlineServicesWorker
             if (bc == 0)
                 throw new Exception("At least one billing category is required.");
 
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateBilling(bc);
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateBilling(bc);
         }
 
         public string RunUpdateToolDataClean(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateToolDataClean();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateToolDataClean();
         }
 
         public string RunUpdateToolData(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateToolData();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateToolData();
         }
 
         public string RunUpdateToolBilling(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateToolBilling();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateToolBilling();
         }
 
         public string RunUpdateRoomDataClean(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateRoomDataClean();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateRoomDataClean();
         }
 
         public string RunUpdateRoomData(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateRoomData();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateRoomData();
         }
 
         public string RunUpdateRoomBilling(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateRoomBilling();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateRoomBilling();
         }
 
         public string RunUpdateStoreDataClean(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateStoreDataClean();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateStoreDataClean();
         }
 
         public string RunUpdateStoreData(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateStoreData();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateStoreData();
         }
 
         public string RunUpdateStoreBilling(string[] args)
         {
             ParseArgs(args, out DateTime period);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, 0);
-                return mgr.UpdateStoreBilling();
-            }
+            var mgr = new BillingManager(_provider, period, 0);
+            return mgr.UpdateStoreBilling();
         }
 
         public string RunUpdateSubsidyBilling(string[] args)
         {
             ParseArgs(args, out DateTime period, out int clientId);
-            using (DA.StartUnitOfWork())
-            {
-                var mgr = new BillingManager(period, clientId);
-                return mgr.UpdateSubsidyBilling();
-            }
+            var mgr = new BillingManager(_provider, period, clientId);
+            return mgr.UpdateSubsidyBilling();
         }
 
         public string RunTask(string[] args)
         {
             if (args.Length > 0)
             {
-                using (DA.StartUnitOfWork())
-                {
-                    string task = args[0];
+                string task = args[0];
 
-                    var mgr = new TaskManager();
+                var mgr = new TaskManager(_provider);
 
-                    // optional noEmail parameter
-                    bool noEmail = false;
-                    if (args.Length > 1)
-                        noEmail = bool.Parse(args[1]);
+                // optional noEmail parameter
+                bool noEmail = false;
+                if (args.Length > 1)
+                    noEmail = bool.Parse(args[1]);
 
-                    if (task == "5min")
-                        return mgr.RunFiveMinuteTask();
-                    else if (task == "daily")
-                        return mgr.RunDailyTask(noEmail);
-                    else if (task == "monthly")
-                        return mgr.RunMonthlyTask(noEmail);
-                    else
-                        throw new Exception($"Unknown task: {task}");
-                }
+                if (task == "5min")
+                    return mgr.RunFiveMinuteTask();
+                else if (task == "daily")
+                    return mgr.RunDailyTask(noEmail);
+                else if (task == "monthly")
+                    return mgr.RunMonthlyTask(noEmail);
+                else
+                    throw new Exception($"Unknown task: {task}");
             }
             else
                 throw new Exception($"Wrong number of required args for this command. [Expected: 1, Actual: {args.Length}]");
@@ -226,41 +188,32 @@ namespace OnlineServicesWorker
         public string RunSetWagoState(string[] args)
         {
             ParseArgs(args, out int resourceId, out bool state);
-            using (DA.StartUnitOfWork())
-            {
-                WagoInterlock.ToggleInterlock(resourceId, state, 0);
-                return $"Wago point for {resourceId} set to {(state ? "ON" : "OFF")}.";
-            }
+            WagoInterlock.ToggleInterlock(resourceId, state, 0);
+            return $"Wago point for {resourceId} set to {(state ? "ON" : "OFF")}.";
         }
 
         public string RunGetWagoState(string[] args)
         {
             ParseArgs(args, out int resourceId);
-            using (DA.StartUnitOfWork())
-            {
-                var state = WagoInterlock.GetPointState(resourceId);
-                return $"Wago point for {resourceId} is {(state ? "ON" : "OFF")}.";
-            }
+            var state = WagoInterlock.GetPointState(resourceId);
+            return $"Wago point for {resourceId} is {(state ? "ON" : "OFF")}.";
         }
 
         public string SendEmail(string[] args)
         {
             if (args.Length == 7)
             {
-                using (DA.StartUnitOfWork())
-                {
-                    string from = args[0];
-                    string[] to = args[1].Split(',');
-                    string[] cc = args[2].Split(',');
-                    string[] bcc = args[3].Split(',');
-                    string subj = args[4];
-                    string body = args[5];
-                    bool isHtml = bool.Parse(args[6]);
+                string from = args[0];
+                string[] to = args[1].Split(',');
+                string[] cc = args[2].Split(',');
+                string[] bcc = args[3].Split(',');
+                string subj = args[4];
+                string body = args[5];
+                bool isHtml = bool.Parse(args[6]);
 
-                    LNF.CommonTools.SendEmail.Send(0, "OnlineServicesWorker.RequestHandler.SendEmail", subj, body, from, to, cc, bcc, isHtml);
+                LNF.CommonTools.SendEmail.Send(0, "OnlineServicesWorker.RequestHandler.SendEmail", subj, body, from, to, cc, bcc, isHtml);
 
-                    return "Email sent OK!" + Environment.NewLine;
-                }
+                return "Email sent OK!" + Environment.NewLine;
             }
             else
                 throw new Exception($"Wrong number of required args for this command. [Expected: 7, Actual: {args.Length}]");

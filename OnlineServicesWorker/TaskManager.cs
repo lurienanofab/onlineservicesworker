@@ -1,22 +1,25 @@
 ﻿using LNF;
 using LNF.Billing;
+using LNF.Billing.Reports;
 using LNF.CommonTools;
-using LNF.Models;
-using LNF.Models.Billing;
-using LNF.Models.Mail;
-using LNF.Repository;
-using LNF.Repository.Data;
+using LNF.Impl.Billing;
 using LNF.Scheduler;
 using System;
+using System.Collections.Generic;
+using System.Configuration;
+using System.Data.SqlClient;
 using System.Linq;
 
 namespace OnlineServicesWorker
 {
     public class TaskManager
     {
-        public IReservationManager ReservationManager => ServiceProvider.Current.Use<IReservationManager>();
+        private readonly IProvider _provider;
 
-        public IApportionmentManager ApportionmentManager => ServiceProvider.Current.Use<IApportionmentManager>();
+        public TaskManager(IProvider provider)
+        {
+            _provider = provider;
+        }
 
         public string RunFiveMinuteTask()
         {
@@ -27,19 +30,20 @@ namespace OnlineServicesWorker
             ProcessResult result;
 
             // every five minutes tasks
-            var pastEndableRepairReservations = ReservationManager.SelectPastEndableRepair();
-            result = ReservationManager.HandleRepairReservations(pastEndableRepairReservations);
+            var pastEndableRepairReservations = _provider.Scheduler.Reservation.SelectPastEndableRepair();
+            var util = Reservations.Create(_provider, DateTime.Now);
+            result = util.HandleRepairReservations(pastEndableRepairReservations);
             message += result.LogText;
 
-            var autoEndReservations = ReservationManager.SelectAutoEnd();
-            result = ReservationManager.HandleAutoEndReservations(autoEndReservations);
+            var autoEndReservations = _provider.Scheduler.Reservation.SelectAutoEnd();
+            result = util.HandleAutoEndReservations(autoEndReservations);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
-            var pastUnstartedReservations = ReservationManager.SelectPastUnstarted();
-            result = ReservationManager.HandleUnstartedReservations(pastUnstartedReservations);
+            var pastUnstartedReservations = _provider.Scheduler.Reservation.SelectPastUnstarted();
+            result = util.HandleUnstartedReservations(pastUnstartedReservations);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
-            var sendFiveMinuteTaskEmail = LNF.CommonTools.Utility.GetGlobalSetting("SendFiveMinuteTaskEmail");
+            var sendFiveMinuteTaskEmail = GlobalSettings.Current.GetGlobalSetting("SendFiveMinuteTaskEmail");
 
             if (!string.IsNullOrEmpty(sendFiveMinuteTaskEmail))
             {
@@ -59,14 +63,15 @@ namespace OnlineServicesWorker
             ProcessResult result;
 
             // Check client tool auths
-            result = ResourceClientUtility.CheckExpiringClients(ResourceClientUtility.SelectExpiringClients(), ResourceClientUtility.SelectExpiringEveryone(), noEmail);
+            result = ResourceClients.CheckExpiringClients(ResourceClients.SelectExpiringClients(), ResourceClients.SelectExpiringEveryone(), noEmail);
             message += result.LogText;
 
-            result = ResourceClientUtility.CheckExpiredClients(ResourceClientUtility.SelectExpiredClients(), ResourceClientUtility.SelectExpiredEveryone(), noEmail);
+            result = ResourceClients.CheckExpiredClients(ResourceClients.SelectExpiredClients(), ResourceClients.SelectExpiredEveryone(), noEmail);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
             // update the DataClean and Data tables
-            result = DataTableManager.Update(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
+            _provider.Billing.Process.UpdateBilling(new UpdateBillingArgs { BillingCategory = BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store, ClientID = 0, Periods = new DateTime[] { } });
+            result = DataTableManager.Create(_provider).Update(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
             //2009-08-01 Populate the Billing temp tables
@@ -76,16 +81,25 @@ namespace OnlineServicesWorker
             message += $"{Environment.NewLine}{Environment.NewLine}Yesterday: {yesterday:yyyy-MM-dd HH:mm:ss}";
             message += $"{Environment.NewLine}Period: {period:yyyy-MM-dd HH:mm:ss}";
 
-            result = BillingDataProcessStep1.PopulateToolBilling(period, 0, true);
-            message += Environment.NewLine + Environment.NewLine + result.LogText;
+            using (var conn = NewConnection())
+            {
+                conn.Open();
 
-            result = BillingDataProcessStep1.PopulateRoomBilling(period, 0, true);
-            message += Environment.NewLine + Environment.NewLine + result.LogText;
+                var step1 = new BillingDataProcessStep1(new Step1Config { Connection = conn, Context = "OnlineServicesWorker.TaskManager.RunDailyTask", Period = period, Now = now, ClientID = 0, IsTemp = true });
 
-            result = BillingDataProcessStep1.PopulateStoreBilling(period, true);
-            message += Environment.NewLine + Environment.NewLine + result.LogText;
+                result = step1.PopulateToolBilling();
+                message += Environment.NewLine + Environment.NewLine + result.LogText;
 
-            var sendDailyTaskEmail = LNF.CommonTools.Utility.GetGlobalSetting("SendDailyTaskEmail");
+                result = step1.PopulateRoomBilling();
+                message += Environment.NewLine + Environment.NewLine + result.LogText;
+
+                result = step1.PopulateStoreBilling();
+                message += Environment.NewLine + Environment.NewLine + result.LogText;
+
+                conn.Close();
+            }
+
+            var sendDailyTaskEmail = GlobalSettings.Current.GetGlobalSetting("SendDailyTaskEmail");
 
             if (!string.IsNullOrEmpty(sendDailyTaskEmail))
             {
@@ -109,17 +123,18 @@ namespace OnlineServicesWorker
 
             message += $"Period: {period:yyyy-MM-dd HH:mm:ss}";
 
-            var autoSend = DA.Current.Query<GlobalSettings>().Where(x => new[]
+            var autoSend = new Dictionary<string, string>
             {
-                "ApportionmentReminder_AutoSendMonthlyEmail",
-                "FinancialManagerReport_AutoSendMonthlyEmail",
-                "ExpiringCardsReminder_AutoSendMonthlyEmail"
-            }.Contains(x.SettingName));
+                ["ApportionmentReminder_AutoSendMonthlyEmail"] = GlobalSettings.Current.GetGlobalSetting("ApportionmentReminder_AutoSendMonthlyEmail"),
+                ["FinancialManagerReport_AutoSendMonthlyEmail"] = GlobalSettings.Current.GetGlobalSetting("FinancialManagerReport_AutoSendMonthlyEmail"),
+                ["ExpiringCardsReminder_AutoSendMonthlyEmail"] = GlobalSettings.Current.GetGlobalSetting("ExpiringCardsReminder_AutoSendMonthlyEmail")
+            };
+          
 
             // This sends apportionment emails to clients
-            if (autoSend.Any(x => x.SettingName == "ApportionmentReminder_AutoSendMonthlyEmail" && x.SettingValue == "true"))
+            if (autoSend.Any(x => x.Key == "ApportionmentReminder_AutoSendMonthlyEmail" && x.Value == "true"))
             {
-                result = ApportionmentManager.SendMonthlyApportionmentEmails(period, null, noEmail);
+                result = _provider.Billing.Report.SendUserApportionmentReport(new UserApportionmentReportOptions { Period = period, Message = null, NoEmail = noEmail });
                 message += Environment.NewLine + Environment.NewLine + result.LogText;
             }
             else
@@ -129,9 +144,10 @@ namespace OnlineServicesWorker
 
             // 2008-04-30
             // Monthly financial report
-            if (autoSend.Any(x => x.SettingName == "FinancialManagerReport_AutoSendMonthlyEmail" && x.SettingValue == "true"))
+            if (autoSend.Any(x => x.Key == "FinancialManagerReport_AutoSendMonthlyEmail" && x.Value == "true"))
             {
-                result = FinancialManagerUtility.SendMonthlyUserUsageEmails(period, 0, 0, new MonthlyEmailOptions() { IncludeManager = !noEmail });
+                var fm = new FinancialManagers(_provider.Billing.Report);
+                result = fm.SendMonthlyUserUsageEmails(new FinancialManagerReportOptions() { Period = period, ClientID = 0, ManagerOrgID = 0, IncludeManager = !noEmail });
                 message += Environment.NewLine + Environment.NewLine + result.LogText;
             }
             else
@@ -140,7 +156,7 @@ namespace OnlineServicesWorker
             }
 
             // This sends room expiration emails
-            if (autoSend.Any(x => x.SettingName == "ExpiringCardsReminder_AutoSendMonthlyEmail" && x.SettingValue == "true"))
+            if (autoSend.Any(x => x.Key == "ExpiringCardsReminder_AutoSendMonthlyEmail" && x.Value == "true"))
             {
                 RoomAccessExpirationCheck roomAccessExpirationCheck = new RoomAccessExpirationCheck();
                 var expirationEmailsSent = roomAccessExpirationCheck.Run();
@@ -152,10 +168,10 @@ namespace OnlineServicesWorker
             }
 
             // 2009-08-01 Populate the BillingTables
-            BillingManager bm = new BillingManager(period, 0);
+            BillingManager bm = new BillingManager(_provider, period, 0);
             message += Environment.NewLine + Environment.NewLine + bm.UpdateBilling(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
 
-            var sendMonthlyTaskEmail = LNF.CommonTools.Utility.GetGlobalSetting("SendMonthlyTaskEmail");
+            var sendMonthlyTaskEmail = GlobalSettings.Current.GetGlobalSetting("SendMonthlyTaskEmail");
 
             if (!string.IsNullOrEmpty(sendMonthlyTaskEmail))
             {
@@ -164,6 +180,11 @@ namespace OnlineServicesWorker
             }
 
             return message;
+        }
+
+        private SqlConnection NewConnection()
+        {
+            return new SqlConnection(ConfigurationManager.ConnectionStrings["cnSselData"].ConnectionString);
         }
     }
 }

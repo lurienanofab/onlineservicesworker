@@ -1,7 +1,7 @@
 ﻿using LNF;
 using LNF.CommonTools;
-using LNF.Models.Data;
-using LNF.Models.Scheduler;
+using LNF.Data;
+using LNF.Scheduler;
 using RestSharp;
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace OnlineServicesWorker
         public int Run()
         {
             var dataFeed = GetDataFeed();
-            return EmailExpiringCards(dataFeed.Data["default"]);
+            return EmailExpiringCards(dataFeed.Data.Items(new ExpiringCardConverter()));
         }
 
         private int EmailExpiringCards(IEnumerable<ExpiringCard> data)
@@ -68,23 +68,23 @@ namespace OnlineServicesWorker
             return count;
         }
 
-        public DataFeedModel<ExpiringCard> GetDataFeed()
+        public DataFeedResult GetDataFeed()
         {
             var host = GetApiBaseUrl();
 
             IRestClient client = new RestClient(host);
             IRestRequest req = new RestRequest("data/feed/expiring-cards/json");
-            IRestResponse<DataFeedModel<ExpiringCard>> resp = client.Execute<DataFeedModel<ExpiringCard>>(req);
+            IRestResponse<DataFeedResult> resp = client.Execute<DataFeedResult>(req);
 
             if (resp.IsSuccessful)
                 return resp.Data;
             else
-                throw new Exception($"The HTTP request failed. [{(int)resp.StatusCode}] {resp.StatusDescription}{Environment.NewLine}{new String('-', 50)}{Environment.NewLine}{resp.Content}");
+                throw new Exception($"The HTTP request failed. [{(int)resp.StatusCode}] {resp.StatusDescription}{Environment.NewLine}{new string('-', 50)}{Environment.NewLine}{resp.Content}");
         }
 
         private string[] GetExpiringCardsEmailRecipients()
         {
-            var setting = Utility.GetGlobalSetting("ExpiringCardsReminder_MonthlyEmailRecipient");
+            var setting = GlobalSettings.Current.GetGlobalSetting("ExpiringCardsReminder_MonthlyEmailRecipient");
 
             if (string.IsNullOrEmpty(setting))
                 return null;

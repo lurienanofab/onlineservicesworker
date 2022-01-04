@@ -1,17 +1,18 @@
 ﻿using LNF;
 using LNF.CommonTools;
-using LNF.Impl.DependencyInjection.Default;
-using LNF.Models.Mail;
-using LNF.Models.Worker;
+using LNF.DependencyInjection;
+using LNF.Impl.DependencyInjection;
+using LNF.Worker;
 using Newtonsoft.Json;
 using RestSharp;
 using RestSharp.Authenticators;
 using System;
+using System.Configuration;
 using System.Configuration.Install;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Messaging;
+using System.Net;
 using System.Reflection;
 using System.ServiceProcess;
 using System.Threading;
@@ -21,6 +22,9 @@ namespace OnlineServicesWorker
     public partial class Service1 : ServiceBase
     {
         private const string QUEUE_PATH = @".\private$\osw";
+
+        private IContainerContext _context;
+        private IProvider _provider;
         private Thread _thread;
 
         public static readonly string InstallServiceName = "OnlineServicesWorker";
@@ -38,12 +42,17 @@ namespace OnlineServicesWorker
 
         protected override void OnStart(string[] args)
         {
-            ServiceProvider.Current = IOC.Resolver.GetInstance<ServiceProvider>();
+            _context = ContainerContextFactory.Current.NewThreadScopedContext();
+            var cfg = new ThreadStaticContainerConfiguration(_context);
+            cfg.RegisterAllTypes();
+            _provider = _context.GetInstance<IProvider>();
+            ServiceProvider.Setup(_provider);
 
             var msgq = GetMessageQueue();
 
             // When the service starts the queue should be cleared so we don't process a bunch of stale messages
-            msgq.Purge();
+            if (ConfigurationManager.AppSettings["PurgeQueueOnStart"] == "true")
+                msgq.Purge();
 
             _thread = new Thread(() =>
             {
@@ -52,31 +61,39 @@ namespace OnlineServicesWorker
                     try
                     {
                         Message msg = msgq.Receive();
-                        msg.Formatter = new XmlMessageFormatter(new[] { typeof(WorkerRequest) });
+
+                        msg.Formatter = new XmlMessageFormatter(new[]
+                        {
+                            typeof(WorkerRequest),
+                            typeof(UpdateBillingWorkerRequest)
+                        });
+
                         WorkerRequest req = (WorkerRequest)msg.Body;
 
-                        BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] RECV: {req.Command}", ConsoleColor.White);
+                        using (_provider.DataAccess.StartUnitOfWork())
+                        {
+                            var handler = new RequestHandler(_provider);
+                            DateTime start = DateTime.Now;
 
-                        var handler = new RequestHandler(req);
-                        var sw = Stopwatch.StartNew();
-                        string message = handler.Start();
-                        sw.Stop();
+                            BroadcastLogMessage($"[{start:yyyy-MM-dd HH:mm:ss}] RECV: {req.Command}", ConsoleColor.White);
 
-                        BroadcastLogMessage(message.TrimEnd(Environment.NewLine.ToCharArray()), ConsoleColor.Yellow);
-                        BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Completed in {sw.Elapsed.TotalSeconds:0.0000}", ConsoleColor.White);
+                            string message = handler.Start(req);
+
+                            DateTime end = DateTime.Now;
+
+                            BroadcastLogMessage(message.TrimEnd(Environment.NewLine.ToCharArray()), ConsoleColor.Yellow);
+                            BroadcastLogMessage($"[{end:yyyy-MM-dd HH:mm:ss}] Completed in {(end - start).TotalSeconds:0.0000}", ConsoleColor.White);
+
+                            SendSuccessEmail(start, end, req.Command, message);
+                        }
                     }
                     catch (Exception ex)
                     {
                         try
                         {
                             Program.ConsoleWriteLine(ex.ToString(), ConsoleColor.Red);
-                            BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex.ToString()}", ConsoleColor.Red);
-
-                            string errorEmail = Utility.GetGlobalSetting("OnlineServicesWorker_SendErrorEmail");
-                            if (!string.IsNullOrEmpty(errorEmail))
-                            {
-                                SendEmail.SendSystemEmail("OnlineServicesWorker", $"OnlineServicesWorker *** ERROR *** [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]", ex.ToString(), errorEmail.Split(','), false);
-                            }
+                            BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {ex}", ConsoleColor.Red);
+                            SendErrorEmail(ex);
                         }
                         catch { }
                     }
@@ -88,10 +105,7 @@ namespace OnlineServicesWorker
             BroadcastLogMessage($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Service started.");
         }
 
-        protected override void OnStop()
-        {
-
-        }
+        protected override void OnStop() { }
 
         private MessageQueue GetMessageQueue()
         {
@@ -111,6 +125,9 @@ namespace OnlineServicesWorker
         private void BroadcastLogMessage(string text, ConsoleColor clr = ConsoleColor.Gray)
         {
             Program.ConsoleWriteLine(text, clr);
+
+            if (!_provider.IsProduction())
+                ServicePointManager.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => true;
 
             var host = Utility.GetRequiredAppSetting("ApiBaseUrl");
             var username = Utility.GetRequiredAppSetting("BasicAuthUsername");
@@ -168,6 +185,26 @@ namespace OnlineServicesWorker
             return result;
         }
 
+        private void SendErrorEmail(Exception ex)
+        {
+            string errorEmail = GlobalSettings.Current.GetGlobalSetting("OnlineServicesWorker_SendErrorEmail");
+            if (!string.IsNullOrEmpty(errorEmail))
+            {
+                SendEmail.SendSystemEmail("OnlineServicesWorker.Service1.SendErrorEmail", $"OnlineServicesWorker *** ERROR *** [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]", ex.ToString(), errorEmail.Split(','), false);
+            }
+        }
+
+        private void SendSuccessEmail(DateTime start, DateTime end, string command, string message)
+        {
+            string successEmail = GlobalSettings.Current.GetGlobalSetting("OnlineServicesWorker_SendSuccessEmail");
+            if (!string.IsNullOrEmpty(successEmail))
+            {
+                var span = end - start;
+                string body = $"Job: {command}\nStarted at {start:yyyy-MM-dd HH:mm:ss}\nEnded at {end:yyyy-MM-dd HH:mm:ss}\nCompleted in {span.TotalSeconds} seconds\n--------------------------------------------------\n{message}";
+                SendEmail.SendSystemEmail("OnlineServicesWorker.Service1.SendSuccessEmail", $"OnlineServicesWorker Job Completed Successfully [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]", body, successEmail.Split(','), false);
+            }
+        }
+
         public static bool IsServiceInstalled()
         {
             return ServiceController.GetServices().Any(s => s.ServiceName == InstallServiceName);
@@ -187,5 +224,8 @@ namespace OnlineServicesWorker
         {
             ManagedInstallerClass.InstallHelper(new string[] { "/u", Assembly.GetExecutingAssembly().Location });
         }
+
+
+
     }
 }

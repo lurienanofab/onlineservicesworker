@@ -43,6 +43,7 @@ namespace OnlineServicesWorker
                 Console.Clear();
                 Console.Title = Service1.InstallServiceName;
                 service.Start(null);
+
                 Console.ReadKey(true);
                 service.Stop();
                 Environment.Exit(0);

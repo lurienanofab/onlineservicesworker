@@ -1,115 +1,127 @@
-﻿using LNF.CommonTools;
-using LNF.Models;
-using LNF.Models.Billing;
+﻿using LNF;
+using LNF.Billing;
+using LNF.Billing.Process;
+using LNF.CommonTools;
 using System;
+using System.Text;
 
 namespace OnlineServicesWorker
 {
     public class BillingManager
     {
+        private readonly IProvider _provider;
+
         public DateTime Period { get; }
         public int ClientID { get; }
 
-        private readonly WriteToolDataCleanProcess _writeToolDataCleanProcess;
-        private readonly WriteToolDataProcess _writeToolDataProcess;
+        protected IProcessRepository Process => _provider.Billing.Process;
 
-        private readonly WriteRoomDataCleanProcess _writeRoomDataCleanProcess;
-        private readonly WriteRoomDataProcess _writeRoomDataProcess;
-
-        private readonly WriteStoreDataCleanProcess _writeStoreDataCleanProcess;
-        private readonly WriteStoreDataProcess _writeStoreDataProcess;
-
-        public BillingManager(DateTime period, int clientId)
+        public BillingManager(IProvider provider, DateTime period, int clientId)
         {
+            _provider = provider;
+
             Period = period;
             ClientID = clientId;
 
             DateTime sd = period;
             DateTime ed = period.AddMonths(1);
-
-            _writeToolDataCleanProcess = new WriteToolDataCleanProcess(sd, ed, ClientID);
-            _writeToolDataProcess = new WriteToolDataProcess(Period, ClientID);
-            _writeRoomDataCleanProcess = new WriteRoomDataCleanProcess(sd, ed, ClientID);
-            _writeRoomDataProcess = new WriteRoomDataProcess(Period, ClientID);
-            _writeStoreDataCleanProcess = new WriteStoreDataCleanProcess(sd, ed, ClientID);
-            _writeStoreDataProcess = new WriteStoreDataProcess(Period, ClientID);
         }
 
         public string UpdateBilling(BillingCategory types)
         {
-            string message = string.Empty;
-            string lineBreak = string.Empty;
+            var sb = new StringBuilder();
 
             // DataClean and Data must be run again to get the last day of the month. The daily task alone will not
             // capture the last day because when it runs on the 1st the new period is used for the import date range.
 
             // 1) DataClean
-            if ((types & BillingCategory.Tool) > 0)
-                message += lineBreak + UpdateToolDataClean();
-            if ((types & BillingCategory.Room) > 0)
-                message += lineBreak + UpdateRoomDataClean();
-            if ((types & BillingCategory.Store) > 0)
-                message += lineBreak + UpdateStoreDataClean();
-
-            if (message.Length > 0)
-                lineBreak = Environment.NewLine;
+            sb.AppendLine(GetLogText(Process.DataClean(GetDataCleanCommand(types))));
 
             // 2) Data
-            if ((types & BillingCategory.Tool) > 0)
-                message += lineBreak + UpdateToolData();
-            if ((types & BillingCategory.Room) > 0)
-                message += lineBreak + UpdateRoomData();
-            if ((types & BillingCategory.Store) > 0)
-                message += lineBreak + UpdateStoreData();
-
-            if (message.Length > 0)
-                lineBreak = Environment.NewLine;
+            sb.AppendLine(GetLogText(Process.Data(GetDataCommand(types))));
 
             // 3) Step1
-            if ((types & BillingCategory.Tool) > 0)
-                message += lineBreak + UpdateToolBilling();
-            if ((types & BillingCategory.Room) > 0)
-                message += lineBreak + UpdateRoomBilling();
-            if ((types & BillingCategory.Store) > 0)
-                message += lineBreak + UpdateStoreBilling();
-
-            if (message.Length > 0)
-                lineBreak = Environment.NewLine;
-
+            sb.AppendLine(GetLogText(Process.Step1(GetStep1Command(types))));
+            
             // 4) Step4
             if (!IsTemp())
-            {
-                message += lineBreak + UpdateSubsidyBilling();
-            }
+                sb.AppendLine(GetLogText(Process.Step4(GetStep4Command())));
+
+            string message = sb.ToString();
 
             return message;
         }
 
-        public string UpdateToolDataClean() => GetLogText(_writeToolDataCleanProcess.Start());
+        public string UpdateToolDataClean() => GetLogText(Process.DataClean(GetDataCleanCommand(BillingCategory.Tool)));
 
-        public string UpdateToolData() => GetLogText(_writeToolDataProcess.Start());
+        public string UpdateToolData() => GetLogText(Process.Data(GetDataCommand(BillingCategory.Tool)));
 
-        public string UpdateToolBilling() => GetLogText(BillingDataProcessStep1.PopulateToolBilling(Period, ClientID, IsTemp()));
+        public string UpdateToolBilling() => GetLogText(Process.Step1(GetStep1Command(BillingCategory.Tool)));
 
-        public string UpdateRoomDataClean() => GetLogText(_writeRoomDataCleanProcess.Start());
+        public string UpdateRoomDataClean() => GetLogText(Process.DataClean(GetDataCleanCommand(BillingCategory.Room)));
 
-        public string UpdateRoomData() => GetLogText(_writeRoomDataProcess.Start());
+        public string UpdateRoomData() => GetLogText(Process.Data(GetDataCommand(BillingCategory.Room)));
 
-        public string UpdateRoomBilling() => GetLogText(BillingDataProcessStep1.PopulateRoomBilling(Period, ClientID, IsTemp()));
+        public string UpdateRoomBilling() => GetLogText(Process.Step1(GetStep1Command(BillingCategory.Room)));
 
-        public string UpdateStoreDataClean() => GetLogText(_writeStoreDataCleanProcess.Start());
+        public string UpdateStoreDataClean() => GetLogText(Process.DataClean(GetDataCleanCommand(BillingCategory.Store)));
 
-        public string UpdateStoreData() => GetLogText(_writeStoreDataProcess.Start());
+        public string UpdateStoreData() => GetLogText(Process.Data(GetDataCommand(BillingCategory.Store)));
 
-        public string UpdateStoreBilling() => GetLogText(BillingDataProcessStep1.PopulateStoreBilling(Period, IsTemp()));
+        public string UpdateStoreBilling() => GetLogText(Process.Step1(GetStep1Command(BillingCategory.Store)));
 
-        public string UpdateSubsidyBilling() => GetLogText(BillingDataProcessStep4Subsidy.PopulateSubsidyBilling(Period, ClientID));
+        public string UpdateSubsidyBilling() => GetLogText(Process.Step4(GetStep4Command()));
 
         public bool IsTemp() => Period == DateTime.Now.FirstOfMonth();
 
         private string GetLogText(ProcessResult result)
         {
             return result.LogText;
+        }
+
+        private DataCleanCommand GetDataCleanCommand(BillingCategory bc)
+        {
+            return new DataCleanCommand
+            {
+                BillingCategory = bc,
+                StartDate = Period,
+                EndDate = Period.AddMonths(1),
+                ClientID = ClientID
+            };
+        }
+
+        private DataCommand GetDataCommand(BillingCategory bc)
+        {
+            return new DataCommand
+            {
+                BillingCategory = bc,
+                Period = Period,
+                ClientID = ClientID,
+                Record = 0
+            };
+        }
+
+        private Step1Command GetStep1Command(BillingCategory bc)
+        {
+            return new Step1Command
+            {
+                BillingCategory = bc,
+                Period = Period,
+                ClientID = ClientID,
+                Record = 0,
+                IsTemp = IsTemp(),
+                Delete = true
+            };
+        }
+
+        private Step4Command GetStep4Command()
+        {
+            return new Step4Command
+            {
+                Command = "subsidy",
+                Period = Period,
+                ClientID = ClientID
+            };
         }
     }
 }

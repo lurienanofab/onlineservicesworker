@@ -1,69 +1,44 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <configSections>
     <sectionGroup name="lnf">
-      <section name="provider" type="LNF.ServiceProviderSection, LNF" />
+      <section name="provider" type="LNF.Configuration, LNF"/>
     </sectionGroup>
   </configSections>
 
-  <!-- Development Values -->
   <lnf>
     <provider production="false">
-      <context loginUrl="/login" />
-      <dataAccess showSql="true" />
-      <email host="xxxxx" log="true" />
-      <control host="xxxxx" />
-      <log name="OnlineServicesWorker" enabled="true" />
+      <context loginUrl="/login"/>
+      <dataAccess showSql="true" universalPassword="xxxxx"/>
+      <email host="xxxxx" log="true"/>
+      <control host="xxxxx"/>
+      <log name="OnlineServicesWorker" enabled="true"/>
     </provider>
   </lnf>
-
-  <!-- Production Values
-  <lnf>
-    <provider production="true">
-      <context loginUrl="/login" />
-      <dataAccess showSql="false" />
-      <email host="xxxxx" log="true" />
-      <control host="xxxxx" />
-      <log name="OnlineServicesWorker" enabled="true" />
-    </provider>
-  </lnf>
-  -->
 
   <connectionStrings>
     <add name="cnSselData" connectionString="xxxxx" providerName="System.Data.SqlClient" />
   </connectionStrings>
 
-  <!-- Development Values -->
   <appSettings>
+    <add key="SecurePath" value="xxxxx" />
+    <add key="WagoEnabled" value="true" />
     <add key="UseParentRooms" value="true" />
     <add key="UserApportionmentEmailRecipients" value="xxxxx" />
     <add key="MonthlyFinancialEmailRecipients" value="xxxxx" />
     <add key="ExpiringCardsEmailRecipients" value="xxxxx" />
-    
+    <add key="PurgeQueueOnStart" value="true" />
+
     <!-- leave blank to not send email -->
     <add key="SendDailyTaskEmail" value="xxxxx" />
-    
-    <add key="ApiBaseUrl" value="xxxxx" />
-    <add key="BasicAuthUsername" value="xxxxx" />
-    <add key="BasicAuthPassword" value="xxxxx" />
-    <add key="MongoConnectionString" value="xxxxx" />
-  </appSettings>
 
-  <!-- Production Values
-  <appSettings>
-    <add key="UseParentRooms" value="true" />
-    <add key="UserApportionmentEmailRecipients" value="xxxxx" />
-    <add key="MonthlyFinancialEmailRecipients" value="xxxxx" />
-    <add key="ExpiringCardsEmailRecipients" value="xxxxx" />
-    <add key="SendDailyTaskEmail" value="xxxxx" />
     <add key="ApiBaseUrl" value="xxxxx" />
     <add key="BasicAuthUsername" value="xxxxx" />
     <add key="BasicAuthPassword" value="xxxxx" />
     <add key="MongoConnectionString" value="xxxxx" />
   </appSettings>
-  -->
 
   <startup>
-    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.7" />
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.8" />
   </startup>
 </configuration>
