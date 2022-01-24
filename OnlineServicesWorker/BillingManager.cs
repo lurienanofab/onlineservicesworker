@@ -22,9 +22,6 @@ namespace OnlineServicesWorker
 
             Period = period;
             ClientID = clientId;
-
-            DateTime sd = period;
-            DateTime ed = period.AddMonths(1);
         }
 
         public string UpdateBilling(BillingCategory types)

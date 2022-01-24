@@ -71,7 +71,7 @@ namespace OnlineServicesWorker
 
             // update the DataClean and Data tables
             _provider.Billing.Process.UpdateBilling(new UpdateBillingArgs { BillingCategory = BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store, ClientID = 0, Periods = new DateTime[] { } });
-            result = DataTableManager.Create(_provider).Update(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
+            //result = DataTableManager.Create(_provider).Update(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
             //2009-08-01 Populate the Billing temp tables
