@@ -56,8 +56,6 @@ namespace OnlineServicesWorker
 
         public string RunDailyTask(bool noEmail)
         {
-            DateTime now = DateTime.Now;
-
             string message = string.Empty;
 
             ProcessResult result;
@@ -70,41 +68,16 @@ namespace OnlineServicesWorker
             message += Environment.NewLine + Environment.NewLine + result.LogText;
 
             // update the DataClean and Data tables
-            _provider.Billing.Process.UpdateBilling(new UpdateBillingArgs { BillingCategory = BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store, ClientID = 0, Periods = new DateTime[] { } });
-            //result = DataTableManager.Create(_provider).Update(BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store);
-            message += Environment.NewLine + Environment.NewLine + result.LogText;
-
-            //2009-08-01 Populate the Billing temp tables
-            DateTime yesterday = DateTime.Now.Date.AddDays(-1); //must be yesterday
-            DateTime period = yesterday.FirstOfMonth();
-
-            message += $"{Environment.NewLine}{Environment.NewLine}Yesterday: {yesterday:yyyy-MM-dd HH:mm:ss}";
-            message += $"{Environment.NewLine}Period: {period:yyyy-MM-dd HH:mm:ss}";
-
-            using (var conn = NewConnection())
-            {
-                conn.Open();
-
-                var step1 = new BillingDataProcessStep1(new Step1Config { Connection = conn, Context = "OnlineServicesWorker.TaskManager.RunDailyTask", Period = period, Now = now, ClientID = 0, IsTemp = true });
-
-                result = step1.PopulateToolBilling();
-                message += Environment.NewLine + Environment.NewLine + result.LogText;
-
-                result = step1.PopulateRoomBilling();
-                message += Environment.NewLine + Environment.NewLine + result.LogText;
-
-                result = step1.PopulateStoreBilling();
-                message += Environment.NewLine + Environment.NewLine + result.LogText;
-
-                conn.Close();
-            }
+            var fom = DateTime.Now.FirstOfMonth();
+            var updateBillingResult = _provider.Billing.Process.UpdateBilling(new UpdateBillingArgs { BillingCategory = BillingCategory.Tool | BillingCategory.Room | BillingCategory.Store, ClientID = 0, Periods = new[] { fom } });
+            message += Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, updateBillingResult);
 
             var sendDailyTaskEmail = GlobalSettings.Current.GetGlobalSetting("SendDailyTaskEmail");
 
             if (!string.IsNullOrEmpty(sendDailyTaskEmail))
             {
                 // send an email
-                SendEmail.SendSystemEmail("OnlineServicesWorker.TaskManager.RunDailyTask", $"DailyTask result [{now:yyyy-MM-dd HH:mm:ss}]", message, sendDailyTaskEmail.Split(','), false);
+                SendEmail.SendSystemEmail("OnlineServicesWorker.TaskManager.RunDailyTask", $"DailyTask result [{DateTime.Now:yyyy-MM-dd HH:mm:ss}]", message, sendDailyTaskEmail.Split(','), false);
             }
 
             return message;
@@ -129,7 +102,7 @@ namespace OnlineServicesWorker
                 ["FinancialManagerReport_AutoSendMonthlyEmail"] = GlobalSettings.Current.GetGlobalSetting("FinancialManagerReport_AutoSendMonthlyEmail"),
                 ["ExpiringCardsReminder_AutoSendMonthlyEmail"] = GlobalSettings.Current.GetGlobalSetting("ExpiringCardsReminder_AutoSendMonthlyEmail")
             };
-          
+
 
             // This sends apportionment emails to clients
             if (autoSend.Any(x => x.Key == "ApportionmentReminder_AutoSendMonthlyEmail" && x.Value == "true"))
@@ -180,11 +153,6 @@ namespace OnlineServicesWorker
             }
 
             return message;
-        }
-
-        private SqlConnection NewConnection()
-        {
-            return new SqlConnection(ConfigurationManager.ConnectionStrings["cnSselData"].ConnectionString);
         }
     }
 }
