@@ -131,8 +131,8 @@ namespace OnlineServicesWorker
             // This sends room expiration emails
             if (autoSend.Any(x => x.Key == "ExpiringCardsReminder_AutoSendMonthlyEmail" && x.Value == "true"))
             {
-                RoomAccessExpirationCheck roomAccessExpirationCheck = new RoomAccessExpirationCheck();
-                var expirationEmailsSent = roomAccessExpirationCheck.Run();
+                var cardExpirationResult = _provider.Billing.Report.SendCardExpirationReport();
+                var expirationEmailsSent = cardExpirationResult.TotalEmailsSent;
                 message += Environment.NewLine + Environment.NewLine + $"ExpirationEmailsSent: {expirationEmailsSent}";
             }
             else

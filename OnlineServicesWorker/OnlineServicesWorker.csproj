@@ -87,7 +87,6 @@
   <ItemGroup>
     <Compile Include="BillingManager.cs" />
     <Compile Include="RequestHandler.cs" />
-    <Compile Include="RoomAccessExpirationCheck.cs" />
     <Compile Include="Service1.cs">
       <SubType>Component</SubType>
     </Compile>
