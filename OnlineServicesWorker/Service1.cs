@@ -42,7 +42,8 @@ namespace OnlineServicesWorker
 
         protected override void OnStart(string[] args)
         {
-            _context = ContainerContextFactory.Current.NewThreadScopedContext();
+            ContainerContextFactory.Current.NewThreadScopedContext();
+            _context = ContainerContextFactory.Current.GetContext();
             var cfg = new ThreadStaticContainerConfiguration(_context);
             cfg.RegisterAllTypes();
             _provider = _context.GetInstance<IProvider>();
